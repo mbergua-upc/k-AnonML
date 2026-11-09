@@ -5,7 +5,7 @@
 import argparse
 import csv
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,7 @@ from utils.types import AnonMethod, Classifier, Dataset, MLRes
 
 
 def main(args):
-    sns.set()  # set defaults
+    sns.set_theme()  # set defaults (ORIGINAL: sns.set())
     rnd = 42
     np.random.seed(rnd)
 
@@ -50,7 +50,8 @@ def main(args):
     # Generalization hierarchies path
     gen_path = os.path.join('generalization', 'hierarchies', dataset, '')  # trailing /
     # folder for all results
-    res_folder = os.path.join('results', dataset, anon_method, datetime.utcnow().isoformat().replace(':', '_'))
+    res_folder = os.path.join('results', dataset, anon_method, datetime.now(timezone.utc).isoformat().replace(':', '_'))
+    # ORIGINAL: datetime.utcnow()
 
     # ML results path
     output_path = os.path.join(res_folder, f'{dataset}_{os.path.basename(anon_method)}_{os.path.basename(classifier)}_k_{args.stop_k}.csv')
@@ -217,9 +218,9 @@ def main(args):
                     y = anon_data[target_var]
                     X = anon_data.drop(SA_var, axis=1)
 
-                    for index_row, row in X.iterrows():
+                    for index_row, row in X.iterrows(): 
                         cat_iter = iter(IS_CAT2)
-                        for index_col, col in row.iteritems():
+                        for index_col, col in row.items(): # ORIGINAL: for index_col, col in row.iteritems():
                             # only quasi identifiers
                             if index_col not in QI_NAMES:
                                 continue
@@ -313,7 +314,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        'dataset',
+        '--dataset',
         # ["adult", "cahousing", "cmc", "mgm"],
         choices=list(Dataset),
         default="adult",
@@ -322,7 +323,7 @@ if __name__ == "__main__":
     )
 
     # ["rf", "knn", "svm", "xgb"]
-    parser.add_argument('classifier', choices=list(Classifier),
+    parser.add_argument('--classifier', choices=list(Classifier),
                         default="knn", nargs='?', help='machine learning classifier')
     parser.add_argument('--start-k', default="2", type=int, help='initial value for k of k-anonymity')
     parser.add_argument('--stop-k', default="100", type=int, help='last value for k of k-anonymity')
