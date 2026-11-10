@@ -46,6 +46,15 @@ class Classifier(Enum):
         return str(other) == self.value
 
 
-MLRes = namedtuple("MLRes", ['acc', 'precision', 'recall', 'f1_score'])
-# python3.6
-MLRes.__new__.__defaults__ = (['accuracy'], ['precision'], ['recall'], ['f1'])
+class MLRes(namedtuple("MLRes", ['acc', 'precision', 'recall', 'f1_score'])):
+    __slots__ = ()
+
+    def __new__(cls, acc=None, precision=None, recall=None, f1_score=None):
+        # fresh lists on every call: shared mutable defaults leaked results between runs (e.g. between s values)
+        return super().__new__(
+            cls,
+            ['accuracy'] if acc is None else acc,
+            ['precision'] if precision is None else precision,
+            ['recall'] if recall is None else recall,
+            ['f1'] if f1_score is None else f1_score,
+        )

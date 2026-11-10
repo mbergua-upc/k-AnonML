@@ -1,5 +1,7 @@
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.deidentifier.arx.ARXAnonymizer;
 import org.deidentifier.arx.ARXConfiguration;
@@ -8,57 +10,92 @@ import org.deidentifier.arx.ARXResult;
 import org.deidentifier.arx.AttributeType;
 import org.deidentifier.arx.AttributeType.Hierarchy;
 import org.deidentifier.arx.Data;
-import org.deidentifier.arx.DataHandle;
+import org.deidentifier.arx.criteria.DistinctLDiversity;
+import org.deidentifier.arx.criteria.EntropyLDiversity;
+import org.deidentifier.arx.criteria.EqualDistanceTCloseness;
 import org.deidentifier.arx.criteria.KAnonymity;
 
 /**
  * Minimal command line front end for the ARX library.
  *
- * Usage: java -cp arx.jar ArxRunner.java input.csv output.csv k suppression algorithm hierarchyPrefix qi1,qi2,...
+ * Usage: java -cp arx.jar ArxRunner.java --input in.csv --output out.csv --k 5 --algorithm OPTIMAL
+ *            --hierarchy-prefix path/dataset --qi name1,name2 [options]
  *
- * - input.csv / output.csv use ';' as delimiter and contain a header row.
- * - suppression is the maximum fraction of suppressed records (0.0 - 1.0).
- * - algorithm is a name of ARXConfiguration.AnonymizationAlgorithm.
- * - the hierarchy of a quasi identifier is read from hierarchyPrefix + "_hierarchy_" + name + ".csv".
+ * Required:
+ *   --input, --output   CSV files with ';' as delimiter and a header row
+ *   --k                 k-anonymity
+ *   --algorithm         name of ARXConfiguration.AnonymizationAlgorithm
+ *   --hierarchy-prefix  the hierarchy of a QI is read from prefix + "_hierarchy_" + name + ".csv"
+ *   --qi                comma separated names of the quasi identifiers
+ * Optional:
+ *   --suppression       maximum fraction of suppressed records (0.0 - 1.0), default 0
+ *   --sensitive         name of the sensitive attribute (required by l-diversity and t-closeness)
+ *   --l                 l-diversity parameter
+ *   --l-variant         "distinct" (default) or "entropy"
+ *   --t                 t-closeness parameter (equal distance, 0.0 - 1.0)
  */
 public class ArxRunner {
 
     private static final char DELIMITER = ';';
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 7) {
-            System.err.println("Usage: ArxRunner input output k suppression algorithm hierarchyPrefix qiNames");
+        Map<String, String> opt = new HashMap<>();
+        for (int i = 0; i + 1 < args.length; i += 2) {
+            opt.put(args[i], args[i + 1]);
+        }
+        for (String required : new String[] { "--input", "--output", "--k", "--algorithm", "--hierarchy-prefix", "--qi" }) {
+            if (!opt.containsKey(required)) {
+                System.err.println("Missing argument " + required);
+                System.exit(2);
+            }
+        }
+
+        int k = Integer.parseInt(opt.get("--k"));
+        double suppression = Double.parseDouble(opt.getOrDefault("--suppression", "0"));
+        AnonymizationAlgorithm algorithm = AnonymizationAlgorithm.valueOf(opt.get("--algorithm"));
+        String sensitive = opt.get("--sensitive");
+        if ((opt.containsKey("--l") || opt.containsKey("--t")) && sensitive == null) {
+            System.err.println("--sensitive is required for l-diversity and t-closeness");
             System.exit(2);
         }
-        File input = new File(args[0]);
-        File output = new File(args[1]);
-        int k = Integer.parseInt(args[2]);
-        double suppression = Double.parseDouble(args[3]);
-        AnonymizationAlgorithm algorithm = AnonymizationAlgorithm.valueOf(args[4]);
-        String hierarchyPrefix = args[5];
-        String[] qiNames = args[6].split(",");
 
-        Data data = Data.create(input, StandardCharsets.UTF_8, DELIMITER);
+        Data data = Data.create(new File(opt.get("--input")), StandardCharsets.UTF_8, DELIMITER);
         for (int i = 0; i < data.getHandle().getNumColumns(); i++) {
             data.getDefinition().setAttributeType(data.getHandle().getAttributeName(i), AttributeType.INSENSITIVE_ATTRIBUTE);
         }
-        for (String qi : qiNames) {
-            File hierarchyFile = new File(hierarchyPrefix + "_hierarchy_" + qi + ".csv");
+        for (String qi : opt.get("--qi").split(",")) {
+            File hierarchyFile = new File(opt.get("--hierarchy-prefix") + "_hierarchy_" + qi + ".csv");
             Hierarchy hierarchy = Hierarchy.create(hierarchyFile, StandardCharsets.UTF_8, DELIMITER);
             data.getDefinition().setAttributeType(qi, hierarchy);
+        }
+        if (opt.containsKey("--l") || opt.containsKey("--t")) {
+            data.getDefinition().setAttributeType(sensitive, AttributeType.SENSITIVE_ATTRIBUTE);
         }
 
         ARXConfiguration config = ARXConfiguration.create();
         config.addPrivacyModel(new KAnonymity(k));
+        if (opt.containsKey("--l")) {
+            String variant = opt.getOrDefault("--l-variant", "distinct");
+            if (variant.equals("distinct")) {
+                config.addPrivacyModel(new DistinctLDiversity(sensitive, (int) Double.parseDouble(opt.get("--l"))));
+            } else if (variant.equals("entropy")) {
+                config.addPrivacyModel(new EntropyLDiversity(sensitive, Double.parseDouble(opt.get("--l"))));
+            } else {
+                System.err.println("Unknown l-diversity variant " + variant);
+                System.exit(2);
+            }
+        }
+        if (opt.containsKey("--t")) {
+            config.addPrivacyModel(new EqualDistanceTCloseness(sensitive, Double.parseDouble(opt.get("--t"))));
+        }
         config.setSuppressionLimit(suppression);
         config.setAlgorithm(algorithm);
 
         ARXResult result = new ARXAnonymizer().anonymize(data, config);
         if (!result.isResultAvailable()) {
-            System.err.println("ARX found no solution for k=" + k);
+            System.err.println("ARX found no solution for the given privacy models");
             System.exit(3);
         }
-        DataHandle handle = result.getOutput();
-        handle.save(output, DELIMITER);
+        result.getOutput().save(new File(opt.get("--output")), DELIMITER);
     }
 }

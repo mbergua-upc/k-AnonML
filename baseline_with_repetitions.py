@@ -36,10 +36,9 @@ def main(args):
     # Global Parameter
     k_range = range(args.start_k, args.stop_k + 1, args.step_k)
 
-    # OLA Parameter
+    # Suppression (OLA and ARX)
     s_range = [0]
-    if anon_method == 'ola':
-        # Suppression OLA
+    if anon_method == 'ola' or str(anon_method).startswith('arx'):
         s_range = range(args.start_s, args.stop_s + 1, args.step_s)
 
     # define necessary paths
@@ -175,7 +174,7 @@ def main(args):
 
     # Data Anonymization and repeated experiments (with different k)
 
-    with open(features_file, 'a+') as f_file:
+    with open(features_file, 'a+', newline='') as f_file:
         writer = csv.writer(f_file)
         nodes_count = 1
         raw_data, header = read_raw(path, numeric_folder, dataset, QI_INDEX, IS_CAT)
@@ -201,7 +200,12 @@ def main(args):
                 elif anon_method in [AnonMethod.ARX_SAMPLE, AnonMethod.ARX_OPTIMAL, AnonMethod.ARX_BOTTOM_UP]:
                     # 'arx_bottom_up' -> 'BOTTOM_UP'
                     arx_method = str(anon_method).split('_', 1)[1].upper()
-                    anon_data = get_result_arx(raw_data, header, k, gen_path, dataset, QI_INDEX, arx_method, s)
+                    anon_data = get_result_arx(
+                        raw_data, header, k, gen_path, dataset, QI_INDEX, arx_method, s,
+                        sensitive=args.sensitive or target_var,
+                        l_diversity=args.l_diversity, l_variant=args.l_variant,
+                        t_closeness=args.t_closeness
+                    )
 
                 # Write anonymized data in csv file
                 nodes_count = write_anon(s_folder, anon_data, header, k, s, dataset)
@@ -222,7 +226,8 @@ def main(args):
 
                     # creating the ground truth (target variable) vector and removing target variable and ID from the dataset
                     y = anon_data[target_var]
-                    X = anon_data.drop(SA_var, axis=1)
+                    # object dtype allows replacing strings with numbers (pandas >= 3)
+                    X = anon_data.drop(SA_var, axis=1).astype(object)
 
                     for index_row, row in X.iterrows(): 
                         cat_iter = iter(IS_CAT2)
@@ -353,9 +358,20 @@ if __name__ == "__main__":
     parser_cb.add_argument("--cb-alg", choices=['knn', 'kmember', 'oka'],
                            default='knn', help='algorithm for cluster based anonymization')
 
-    subparsers.add_parser(AnonMethod.ARX_SAMPLE.value, help='ARX anonymization (genetic best-effort search)')
-    subparsers.add_parser(AnonMethod.ARX_OPTIMAL.value, help='ARX anonymization (optimal search)')
-    subparsers.add_parser(AnonMethod.ARX_BOTTOM_UP.value, help='ARX anonymization (best-effort bottom-up search)')
+    parser_arx = [
+        subparsers.add_parser(AnonMethod.ARX_SAMPLE.value, help='ARX anonymization (genetic best-effort search)'),
+        subparsers.add_parser(AnonMethod.ARX_OPTIMAL.value, help='ARX anonymization (optimal search)'),
+        subparsers.add_parser(AnonMethod.ARX_BOTTOM_UP.value, help='ARX anonymization (best-effort bottom-up search)'),
+    ]
+    for p in parser_arx:
+        p.add_argument('--start-s', default=0, type=int, help='initial value for suppression (percent of records)')
+        p.add_argument('--stop-s', default=0, type=int, help='last value for suppression (percent of records)')
+        p.add_argument('--step-s', default=1, type=int, help='step for increasing suppression')
+        p.add_argument('--l-diversity', default=None, type=float, help='enable l-diversity with this l')
+        p.add_argument('--l-variant', choices=['distinct', 'entropy'], default='distinct', help='l-diversity variant')
+        p.add_argument('--t-closeness', default=None, type=float, help='enable t-closeness with this t (0-1)')
+        p.add_argument('--sensitive', default=None,
+                       help='sensitive attribute for l-diversity / t-closeness (default: target variable)')
 
     parser.add_argument('--debug', '-d', action='store_true', help='enable debugging')
     parser.add_argument('--verbose', '-v', action='count', default=0)

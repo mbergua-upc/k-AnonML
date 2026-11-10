@@ -74,7 +74,7 @@ def write_results(s, ml_res, anon_method, output_path, num=''):
 
     # Write results for OLA
     # Every Suppression is its own file
-    if anon_method in ['ola']:
+    if anon_method in ['ola'] or str(anon_method).startswith('arx'):
         output_path = output_path[:-4] + '_s_' + str(s) + '.csv'
 
     with open(
