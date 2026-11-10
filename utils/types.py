@@ -22,6 +22,9 @@ class AnonMethod(Enum):
     MONDRIAN = 'mondrian'
     TDG = 'tdg'
     CB = 'cb'
+    ARX_SAMPLE = 'arx_sample'
+    ARX_OPTIMAL = 'arx_optimal'
+    ARX_BOTTOM_UP = 'arx_bottom_up'
 
     def __str__(self):
         return self.value

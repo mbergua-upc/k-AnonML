@@ -21,6 +21,7 @@ from sklearn.preprocessing import MinMaxScaler
 from top_down_greedy.anonymizer import tdg_get_result_one
 from utils.data import read_raw, write_anon
 from utils.types import AnonMethod, Classifier, Dataset, MLRes
+from arx_wrapper.anonymizer import get_result_arx
 
 
 def main(args):
@@ -197,6 +198,11 @@ def main(args):
                     anon_data, gen_level_array = emain(raw_data, k, gen_strat, max_gen_level,
                                                        QI_INDEX, args.metric, res_folder, suppression_rate=s)
 
+                elif anon_method in [AnonMethod.ARX_SAMPLE, AnonMethod.ARX_OPTIMAL, AnonMethod.ARX_BOTTOM_UP]:
+                    # 'arx_bottom_up' -> 'BOTTOM_UP'
+                    arx_method = str(anon_method).split('_', 1)[1].upper()
+                    anon_data = get_result_arx(raw_data, header, k, gen_path, dataset, QI_INDEX, arx_method, s)
+
                 # Write anonymized data in csv file
                 nodes_count = write_anon(s_folder, anon_data, header, k, s, dataset)
 
@@ -346,6 +352,10 @@ if __name__ == "__main__":
     parser_cb = subparsers.add_parser(AnonMethod.CB.value, help='cb anonyization algorithm')
     parser_cb.add_argument("--cb-alg", choices=['knn', 'kmember', 'oka'],
                            default='knn', help='algorithm for cluster based anonymization')
+
+    subparsers.add_parser(AnonMethod.ARX_SAMPLE.value, help='ARX anonymization (genetic best-effort search)')
+    subparsers.add_parser(AnonMethod.ARX_OPTIMAL.value, help='ARX anonymization (optimal search)')
+    subparsers.add_parser(AnonMethod.ARX_BOTTOM_UP.value, help='ARX anonymization (best-effort bottom-up search)')
 
     parser.add_argument('--debug', '-d', action='store_true', help='enable debugging')
     parser.add_argument('--verbose', '-v', action='count', default=0)
