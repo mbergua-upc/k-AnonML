@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Entry point of the OLA (Optimal Lattice Anonymization, El Emam et al.) k-anonymity
+algorithm.
+
+`main(raw_data, kanon, gen_strat, max_gen_level, qi_index, metric, res_folder,
+suppression_rate)` works as follows:
+  1. Transposes the dataset to column-major layout and computes how many rows
+     may be suppressed (`suppression_rate` is a percentage of the rows).
+  2. Builds the generalization lattice (`node.Node`) and the k-anonymity checker
+     (`kanon.AnonCheck`), and runs the lattice search (`algorithm.calculate`),
+     which returns the minimal k-anonymous nodes.
+  3. Picks the best of those nodes according to `metric`: 'prec' (precision),
+     'gweight' (lowest generalization level), 'aecs' (average equivalence class
+     size), 'dm' / 'dms' (discernibility metric), 'ent' (entropy-based loss) or
+     'none' (keep all of them).
+  4. Writes the chosen generalization levels to genarray.csv in `res_folder`.
+  5. Returns the anonymized data and the generalization levels of the best node.
+
+`create_anon_data` applies the generalization levels of a node to the raw data
+using the generalization strategies, and replaces the QI values of the
+equivalence classes smaller than k by '*' (suppression). The number of
+suppressed rows is printed and appended to supprarray.csv.
+"""
 
 import csv
 import math

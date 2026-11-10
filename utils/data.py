@@ -1,5 +1,30 @@
 # -*- coding: utf-8 -*-
 
+"""
+Dataset Utilities
+
+This module provides utility functions for reading, preprocessing, rearranging
+and exporting datasets used in the anonymization experiments.
+
+FUNCTIONS:
+    - read_raw(): Reads the original dataset from a CSV file, separates the
+      header and data, and stores frequency information and sorted values
+      for numerical quasi-identifiers in pickle files.
+
+    - reorder_columns(): Rearranges each row so that quasi-identifiers (QIs)
+      appear first, followed by the remaining attributes.
+
+    - restore_column_order(): Restores the original column order after
+      quasi-identifiers have been moved to the beginning.
+
+    - transform_columns(): Converts a row-oriented dataset into a
+      column-oriented representation (transposes the data).
+
+    - write_anon(): Exports one or more anonymized datasets to CSV files,
+      including the original column headers, and returns the number of
+      datasets written.
+"""
+
 import csv
 import os
 import pickle

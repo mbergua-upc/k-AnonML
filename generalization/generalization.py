@@ -1,5 +1,22 @@
 # -*- coding: utf-8 -*-
 
+"""
+This module implements generalization functions for quasi-identifiers (QIs)
+used in data anonymization. It provides the following functions:
+
+- hierarchy(): Reads the predefined generalization hierarchy for a given QI.
+- age(): Generalizes age values using predefined numerical intervals.
+- segmentation(): Groups numerical values into intervals according to the
+  specified generalization level.
+- zip_code(): Generalizes ZIP codes by progressively replacing characters.
+- removeal(): Replaces a specified number of characters with asterisks.
+- birthdate(): Generalizes birthdates by removing day and month information
+  and, at higher levels, grouping years into intervals.
+- l1sub(): Replaces all values with a placeholder character or symbol.
+- substitution(): Generalizes values using predefined mappings from
+  generalization hierarchies.
+"""
+
 import math
 from generalization.hierarchy_utilities import read_gen_hierarchy
 

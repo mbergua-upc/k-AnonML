@@ -1,7 +1,34 @@
 # -*- coding: utf-8 -*-
 
 """
-Main module of top down greedy anonymizaiton algorithm
+Top-Down Greedy anonymization (k-anonymity) algorithm.
+
+A heuristic "top-down" algorithm for datasets with numeric and categorical
+quasi-identifiers (QI). It starts with a single partition holding all the records
+and recursively splits it in two while both halves keep at least k records.
+
+How a partition is split (`anonymize`):
+  1. `get_pair` looks for two records that are far from each other. Computing
+     the real farthest pair is O(n^2), so it is approximated: pick a random
+     record, take the farthest one from it, then the farthest from that one,
+     and so on for ROUNDS rounds.
+  2. `distribute_record` uses those two records as seeds and sends every other
+     record to the closer seed. The distance between two records is the NCP
+     (Normalized Certainty Penalty) of their joint generalization.
+  3. If one half has fewer than k records, `balance` fixes it with the cheapest
+     (lowest NCP) option: either moving the nearest records from the other half,
+     or merging both halves, which then cannot be split again.
+  4. A partition that cannot be split (fewer than 2k records, or marked as
+     unsplittable) becomes a final group.
+
+Generalization: numeric values become a range (min,max) and categorical values
+become their lowest common ancestor (`LCA`) in the generalization hierarchy.
+All records of a final group get the same generalized QI values.
+
+The entry point is `Top_Down_Greedy_Anonymization(att_trees, data, k, QI_num,
+SA_num)`. It returns a tuple (anonymized rows, (NCP in %, running time)); every
+row has the generalized QI values followed by the non-QI (sensitive) attributes
+unchanged. The state is kept in module-level globals updated by `init()`.
 """
 
 import operator

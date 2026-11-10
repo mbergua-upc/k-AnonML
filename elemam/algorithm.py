@@ -1,4 +1,23 @@
 # -*- coding: utf-8 -*-
+"""
+Lattice search of the OLA (Optimal Lattice Anonymization, El Emam et al.) algorithm.
+
+The generalization lattice contains one node per combination of generalization
+levels of the quasi-identifiers. The goal is to find the minimal nodes that
+satisfy k-anonymity, without evaluating every node:
+  - `calculate` starts the search and returns the list of minimal k-anonymous
+    nodes (`min_k_nodes`).
+  - `sort` orders the nodes by height in the lattice.
+  - `evaluate` is a recursive binary search over the lattice heights: it checks
+    the node at the middle height; if it is k-anonymous it is a candidate and the
+    search continues in the sub-lattice below it, otherwise in the sub-lattice
+    above it. Results are propagated to the related nodes
+    (`set_children_kanon` / `set_parents_notkanon`), so most nodes are never
+    evaluated. `min_k_nodes` is kept free of nodes that are generalizations of
+    another candidate.
+  - `check_kanon` evaluates a node once, using `AnonCheck.calculate_kanon`.
+  - `createsubarray` / `iterate` build the sub-lattice between two nodes.
+"""
 
 import math
 

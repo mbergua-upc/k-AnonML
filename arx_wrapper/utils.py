@@ -1,5 +1,13 @@
 """
-Utilidades del wrapper de ARX
+Helper functions of the ARX wrapper.
+
+  - `find_java`: looks for a Java installation of version 21 or higher (the ARX
+    jar requires it) in the ARX_JAVA and JAVA_HOME environment variables, the
+    usual Windows install folders and the PATH.
+  - `export_to_csv`: writes the dataset (list of rows plus header) to a CSV file
+    with ';' as delimiter, the format read by ArxRunner.java.
+  - `read_arx_output`: reads the CSV produced by ARX and returns its rows
+    (without the header) as a list of lists of strings.
 """
 import csv
 import glob
@@ -25,7 +33,7 @@ def _java_major_version(java):
 
 
 def find_java(min_version=21):
-    """Busca un java >= min_version: ARX_JAVA, JAVA_HOME, rutas habituales de Windows y PATH."""
+    """Searches for a Java installation of version `min_version` or higher."""
     candidates = [os.getenv('ARX_JAVA')]
     if os.getenv('JAVA_HOME'):
         candidates.append(os.path.join(os.environ['JAVA_HOME'], 'bin', 'java.exe'))
@@ -38,11 +46,11 @@ def find_java(min_version=21):
     for java in candidates:
         if java and os.path.isfile(java) and _java_major_version(java) >= min_version:
             return java
-    raise RuntimeError(f"No se encontró Java >= {min_version} (JDK). Instálalo o define ARX_JAVA con la ruta a java.exe")
+    raise RuntimeError(f"Not found a Java installation of version {min_version} or higher (set ARX_JAVA or JAVA_HOME, or install Java 21+).")
 
 
 def export_to_csv(raw_data, header, filepath, delimiter=';'):
-    """Escribe los datos (lista de listas de str) con cabecera en CSV."""
+    """Writes the dataset (list of rows plus header) to a CSV file with ';' as delimiter, the format read by ArxRunner.java."""
     with open(filepath, 'w', encoding='utf-8', newline='') as f:
         writer = csv.writer(f, delimiter=delimiter)
         writer.writerow(header)
@@ -50,7 +58,7 @@ def export_to_csv(raw_data, header, filepath, delimiter=';'):
 
 
 def read_arx_output(filepath, delimiter=';'):
-    """Lee el CSV anonimizado por ARX (sin cabecera) como lista de listas de str."""
+    """Reads the CSV produced by ARX and returns its rows (without the header) as a list of lists of strings."""
     with open(filepath, 'r', encoding='utf-8', newline='') as f:
         reader = csv.reader(f, delimiter=delimiter)
         next(reader)

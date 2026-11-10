@@ -1,6 +1,55 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Anonymization and Machine Learning Evaluation Framework
+
+This script implements an experimental framework to evaluate the impact of
+different data anonymization algorithms and privacy configurations on machine
+learning performance.
+
+INPUTS:
+    - Dataset: Adult, CMC, MGM or CAHousing.
+    - Classifier: KNN, Random Forest, SVM or XGBoost.
+    - Anonymization method:
+        * Mondrian
+        * Top-Down Greedy (TDG)
+        * Clustering-Based Anonymization
+        * OLA
+        * ARX (Sample, Optimal or Bottom-Up search)
+    - Privacy parameters:
+        * k-anonymity (range of k values)
+        * Suppression rate (for OLA and ARX) (range of s values)
+        * l-diversity and t-closeness (optional, for ARX)
+    - Additional method-specific parameters, such as clustering algorithm,
+      optimization metric and sensitive attribute.
+
+WORKFLOW:
+    1. Load the selected dataset and identify quasi-identifiers, sensitive
+       attributes and the target variable.
+    2. Preprocess the original dataset and evaluate the selected classifier
+       to establish a baseline.
+    3. Apply the selected anonymization algorithm for each specified privacy
+       configuration.
+    4. Preprocess the anonymized datasets, handling suppressed values,
+       numerical ranges and categorical attributes.
+    5. Train and evaluate the classifier on each anonymized dataset using
+       the same 70/30 train-test split and random seed (42).
+    6. Calculate and store classification performance metrics.
+
+OUTPUTS:
+    - Anonymized datasets in CSV format, generated for each privacy
+      configuration.
+    - Classification results (accuracy, precision, recall and F1-score).
+    - Feature matrix dimensions for each experiment.
+    - Results organized into timestamped directories by dataset and
+      anonymization method.
+
+The main objective is to compare the predictive utility of anonymized data
+under different privacy configurations and analyse the trade-off between
+privacy protection and machine learning performance.
+"""
+
 # Imports
 import argparse
 import csv
@@ -165,6 +214,13 @@ def main(args):
 
     pred_train = clf.predict(X_train)
     pred_test = clf.predict(X_test)
+
+    print('Results on original data:')
+    print('Training data:')
+    print('Accuracy: %f%%' % (util.get_classifier_metrics(y_train, pred_train)[0]))
+    print('Test data:')
+    print('Accuracy: %f%%' % (util.get_classifier_metrics(y_test, pred_test)[0]))
+
     if args.verbose > 0:
         util.show_classifier_metrics(y_train, pred_train, y_test, pred_test)
 
@@ -215,7 +271,7 @@ def main(args):
                     anon_data = pd.read_csv(os.path.join(
                         s_folder, dataset + "_anonymized_" + str(k) + '_' + str(node) + ".csv"), delimiter=';')
                     print(
-                        'K: ' + str(k) + ' S: ' + str(s) + 'Node: ' + str(node) + ' | Anonymized Data: ' +
+                        'K: ' + str(k) + ' S: ' + str(s) + ' Node: ' + str(node) + ' | Anonymized Data: ' +
                         str(anon_data.shape[0]) + ' entries, ' + str(anon_data.shape[1]) + ' attributes'
                     )
                     # we have to sort the data with respect to ID (in case a anonymization algorithm rearranges the entries)
@@ -374,7 +430,7 @@ if __name__ == "__main__":
                        help='sensitive attribute for l-diversity / t-closeness (default: target variable)')
 
     parser.add_argument('--debug', '-d', action='store_true', help='enable debugging')
-    parser.add_argument('--verbose', '-v', action='count', default=0)
+    parser.add_argument('--verbose', '-v', action='count', default=0, help='increase output verbosity')
 
     args = parser.parse_args()
 

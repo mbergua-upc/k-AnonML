@@ -1,7 +1,37 @@
 # -*- coding: utf-8 -*-
 
 """
-main module of basic Mondrian
+Basic implementation of the Mondrian algorithm for k-anonymity.
+
+Mondrian is a multidimensional top-down anonymization algorithm. It starts
+with a single partition containing all records and recursively splits it,
+provided that each resulting subpartition contains at least k records.
+
+Algorithm overview:
+  1. At each step, it selects the quasi-identifier (QI) with the largest
+     normalized width (similar to NCP - Normalized Controllability Parameter) 
+     that can still be partitioned.
+  2. It splits the partition based on the selected QI:
+       - Numerical attributes: using the median of their values.
+       - Categorical attributes: according to their generalization tree
+         (hierarchy).
+  3. If no split produces two partitions containing at least k records,
+     the QI is marked as non-divisible. When no further QIs can be split,
+     the partition becomes a final group.
+  4. All records within a final group are generalized to the same value
+     (range or hierarchy node), ensuring that each group contains at least
+     k records.
+
+The main function is `mondrian(att_trees, data, k, QI_num, SA_num)`,
+which returns a tuple containing the anonymized data and a pair with the
+NCP (in %) and execution time.
+
+The anonymized data is represented as a list of lists, containing the
+generalized QIs followed by the remaining (sensitive) attributes, which
+are left unchanged.
+
+The algorithm maintains its state through module-level global variables
+(k, QIs, hierarchies, etc.), which are updated by `init()` on each call.
 """
 
 

@@ -1,5 +1,26 @@
 # -*- coding: utf-8 -*-
 
+"""
+Data Types and Result Structures
+
+This module defines the main enumerations and data structures used throughout
+the anonymization and machine learning evaluation framework.
+
+CLASSES:
+    - Dataset (Enum): Defines the supported datasets (CMC, MGM, Adult and
+      CAHousing) and provides string representations of their identifiers.
+
+    - AnonMethod (Enum): Defines the supported anonymization methods
+      (OLA, Mondrian, TDG, Clustering-Based and the three ARX search strategies).
+
+    - Classifier (Enum): Defines the supported machine learning classifiers
+      (Random Forest, KNN, SVM and XGBoost).
+
+    - MLRes (namedtuple): Stores the machine learning evaluation results
+      (accuracy, precision, recall and F1-score), initializing each metric
+      with an independent list to collect experimental results.
+"""
+
 from collections import namedtuple
 from enum import Enum
 

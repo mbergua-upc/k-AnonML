@@ -1,7 +1,35 @@
 # -*- coding: utf-8 -*-
 
 """
-main module for cluster_based_k_anon
+Cluster-based k-anonymity algorithms (KNN, K-Member and OKA).
+
+Instead of recursively splitting the data (as Mondrian does), these algorithms
+group records into clusters of at least k similar records, and then generalize
+every cluster to a single value per quasi-identifier (QI), so that each record
+is indistinguishable from the other k-1 records of its cluster.
+
+Main pieces:
+  - `Cluster`: a group of records, its generalized values (`gen_result`), its
+    center and its information loss.
+  - Distances and information loss are based on NCP (Normalized Certainty
+    Penalty). Numeric QIs are generalized to ranges; categorical QIs to the
+    lowest common ancestor in the generalization hierarchy (`get_LCA`). LCA and
+    NCP results are cached because they are requested many times.
+  - `clustering_knn`: picks a random seed record and groups it with its k-1
+    nearest records, repeating until fewer than k records remain.
+  - `clustering_kmember`: builds each cluster starting from the record furthest
+    from the previous one and adds, one by one, the record that increases the
+    cluster information loss the least.
+  - `clustering_oka`: one-pass k-means; assigns all records to random seed
+    clusters, trims the clusters larger than k and gives the removed records to
+    the clusters smaller than k.
+  - In all three, the records left over (fewer than k) are added to the cluster
+    where they cause the least information loss.
+
+The entry point is `clustering_based_k_anon(att_trees, data, k, QI_num, SA_num,
+type_alg)`, with `type_alg` in {'knn', 'kmember', 'oka'}. It returns a tuple
+(anonymized rows, (NCP in %, running time)); every row has the generalized QI
+values followed by the non-QI (sensitive) attributes unchanged.
 """
 
 import operator

@@ -16,7 +16,18 @@ import org.deidentifier.arx.criteria.EqualDistanceTCloseness;
 import org.deidentifier.arx.criteria.KAnonymity;
 
 /**
- * Minimal command line front end for the ARX library.
+ * Command line front end for the ARX library, called from arx_wrapper/anonymizer.py.
+ *
+ * It reads a CSV dataset, anonymizes it with ARX and writes the result to another
+ * CSV file:
+ *   1. Every column is set as insensitive, then the quasi identifiers (QI) get
+ *      their generalization hierarchy loaded from CSV files, and the sensitive
+ *      attribute is declared when l-diversity or t-closeness is requested.
+ *   2. The privacy models are added: k-anonymity always, plus distinct or entropy
+ *      l-diversity and equal-distance t-closeness if requested.
+ *   3. The suppression limit and the search algorithm are configured and ARX is
+ *      run. If no solution satisfies the models, it exits with code 3.
+ *   4. The anonymized data is saved to the output file.
  *
  * Usage: java -cp arx.jar ArxRunner.java --input in.csv --output out.csv --k 5 --algorithm OPTIMAL
  *            --hierarchy-prefix path/dataset --qi name1,name2 [options]
@@ -44,6 +55,7 @@ public class ArxRunner {
             opt.put(args[i], args[i + 1]);
         }
         for (String required : new String[] { "--input", "--output", "--k", "--algorithm", "--hierarchy-prefix", "--qi" }) {
+            
             if (!opt.containsKey(required)) {
                 System.err.println("Missing argument " + required);
                 System.exit(2);

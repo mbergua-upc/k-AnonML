@@ -1,7 +1,26 @@
 # -*- coding: utf-8 -*-
+"""
+Node of the generalization lattice used by the OLA (El Emam et al.) algorithm.
 
-id = 0
+Each `Node` represents one combination of generalization levels, one level per
+quasi-identifier (QI), e.g. [0, 2, 1]. The node height in the lattice is the sum
+of its levels. Creating the root node ([0, ..., 0]) recursively builds the whole
+lattice: every node links to its child nodes (one QI generalized one more level)
+and to its parent nodes, and nodes are grouped by height in `level_nodes`.
 
+Besides the structure of the lattice, a node stores:
+  - `prec`: precision metric (average of level / maximum level over the QIs).
+  - `iskanon`: whether the node satisfies k-anonymity (None = not evaluated yet).
+  - `eqclasses`, `DM_penalty`, `DMs_penalty`: values used by the average
+    equivalence class size and discernibility metrics.
+
+`set_children_kanon` and `set_parents_notkanon` propagate the k-anonymity result
+through the lattice: if a node is k-anonymous, so are all its generalizations
+(children); if it is not, neither are its less generalized nodes (parents).
+This lets the algorithm skip evaluating most of the nodes. The global `id`
+counter is reused to count how many nodes are still unmarked, so the propagation
+can stop once every node has been classified.
+"""
 
 class Node:
     def __init__(self, attributes: list, node_list: list, max_gen_level: list, level_nodes: dict):

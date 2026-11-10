@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-run basic_mondrian with given parameters
+Entry point used by the experiment script to run basic Mondrian k-anonymity.
+
+`get_result_one` takes the raw dataset (list of rows), the generalization
+hierarchies (att_trees), the value of k and the indexes of the quasi-identifiers
+(QI) and sensitive attributes. It works in three steps:
+  1. Moves the QI columns to the front of every row (`reorder_columns`), which is
+     the layout expected by `basic_mondrian.mondrian.mondrian`.
+  2. Runs Mondrian on a deep copy of the data, so the original dataset is not
+     modified, and prints k, the NCP (information loss) and the running time.
+  3. Restores the original column order (`restore_column_order`) and returns the
+     anonymized rows, with the QI values generalized.
 """
 import copy
 import sys

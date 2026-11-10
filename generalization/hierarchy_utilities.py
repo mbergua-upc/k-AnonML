@@ -26,6 +26,24 @@ Hierarchies used in code have the following structure:
         {"Higher education": [" Bachelors", " Some-college", " Prof-school", " Assoc-acdm", " Assoc-voc", " Masters", " Doctorate"],
          "Secondary education":[" 11th", " HS-grad", " 9th", " 7th-8th", " 12th", " 10th"]}
     ]
+
+    This module provides utilities for creating, reading and writing
+    generalization hierarchies used in data anonymization.
+
+    It includes the following functions:
+
+    - create_gen_hierarchy(): Interactively creates a generalization hierarchy
+    for a selected quasi-identifier (QI), allowing the user to define its
+    generalization levels.
+    - write_gen_hierarchy(): Exports a generalization hierarchy to a CSV file,
+    storing the original values and their corresponding generalized values
+    at each level.
+    - read_gen_hierarchy(): Reads a QI generalization hierarchy from a CSV file
+    and converts it into a list of dictionaries, where each dictionary
+    represents a generalization level.
+    - read_data(): Reads a CSV file and stores its contents as a two-dimensional
+    list organized by columns.
+
 """
 
 

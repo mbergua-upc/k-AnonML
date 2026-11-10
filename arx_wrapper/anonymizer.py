@@ -1,5 +1,21 @@
 """
-Wrapper para integrar ARX (https://arx.deidentifier.org) mediante subprocess
+Bridge between the experiment script and the ARX anonymization tool
+(https://arx.deidentifier.org).
+
+`get_result_arx` is the entry point used by baseline_with_repetitions.py for the
+arx_sample, arx_optimal and arx_bottom_up methods. ARX is a Java library, so the
+function runs it in a subprocess:
+  1. Writes the raw rows to a temporary CSV file (`utils.export_to_csv`).
+  2. Launches `java/ArxRunner.java` with the ARX jar, passing k, the suppression
+     limit, the search algorithm, the generalization hierarchies, the
+     quasi-identifiers (QI) and, optionally, l-diversity / t-closeness and the
+     sensitive attribute. A JDK 21 is located with `utils.find_java`.
+  3. Reads the anonymized CSV back (`utils.read_arx_output`) and returns it as a
+     list of rows with the same column order as the input.
+
+The wrapper method names (SAMPLE, OPTIMAL, BOTTOM_UP) are mapped to ARX
+algorithms in config.py. A timeout, a failure of ARX or a missing jar raises a
+RuntimeError.
 """
 import os
 import subprocess
@@ -15,25 +31,25 @@ def get_result_arx(raw_data, header, k, gen_path, dataset, qi_index,
                    sensitive=None, l_diversity=None, l_variant='distinct',
                    t_closeness=None):
     """
-    Anonimiza datos usando ARX (k-anonimidad, opcionalmente con l-diversity y t-closeness)
+    Data anonymization using ARX (k-anonymity, optionally with l-diversity and t-closeness)
 
     Args:
-        raw_data: Datos sin procesar (lista de listas de str, todas las columnas)
-        header: Nombres de las columnas
-        k: Valor de k-anonimidad
-        gen_path: Carpeta de jerarquías de generalización (con separador final)
-        dataset: Nombre del dataset
-        qi_index: Índices de atributos cuasi-identificadores
-        arx_method: 'SAMPLE', 'OPTIMAL' o 'BOTTOM_UP'
-        suppression: Porcentaje máximo de registros suprimidos (0-100)
-        timeout: Máximo tiempo en segundos (por defecto según el método)
-        sensitive: Nombre del atributo sensible (obligatorio con l_diversity / t_closeness)
-        l_diversity: Valor de l (None = no se aplica)
-        l_variant: 'distinct' o 'entropy'
-        t_closeness: Valor de t entre 0 y 1 (None = no se aplica)
+        raw_data: Non-processed data (list of lists of str, all columns)
+        header: List of column names (same order as raw_data)
+        k: Desired k-anonymity level
+        gen_path: Path to the folder containing the generalization hierarchies (one CSV per QI)
+        dataset: Name of the dataset (used to locate the hierarchies)
+        qi_index: List of column indices corresponding to the quasi-identifiers
+        arx_method: ARX algorithm to use (SAMPLE, OPTIMAL, BOTTOM_UP)
+        suppression: Maximum percentage of rows that can be suppressed (0-100)
+        timeout: Maximum time in seconds to wait for ARX to finish (None = no limit)
+        sensitive: Name of the sensitive attribute (required for l-diversity / t-closeness)
+        l_diversity: Desired l-diversity level (None = not used)
+        l_variant: l-diversity variant (distinct, entropy, recursive)
+        t_closeness: Desired t-closeness level (None = not used)
 
     Returns:
-        Datos anonimizados (lista de listas de str, mismo orden de columnas)
+        Anonymized data (list of lists of str, same columns as raw_data)
     """
     arx_method = arx_method.upper()
     if arx_method not in AVAILABLE_METHODS:

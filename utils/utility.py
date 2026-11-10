@@ -1,5 +1,33 @@
 # -*- coding: utf-8 -*-
 
+"""
+Machine Learning Utilities
+
+This module provides utility functions for creating, training and evaluating
+machine learning classifiers, calculating baseline performance and exporting
+experimental results.
+
+FUNCTIONS:
+    - show_classifier_metrics(): Displays classification performance metrics,
+      including training and test accuracy, confusion matrices and the
+      classification report for the test set.
+
+    - get_classifier_metrics(): Calculates and returns accuracy, macro-
+      averaged precision, recall and F1-score based on test predictions.
+
+    - zero_rule_baseline(): Computes the Zero-Rule baseline accuracy by
+      predicting the most frequent class in the target variable.
+
+    - create_classifier(): Initializes and returns the selected machine
+      learning classifier (Random Forest, KNN, SVM or XGBoost) using
+      predefined hyperparameters, with specific configurations for
+      multiclass datasets.
+
+    - write_results(): Exports the collected machine learning evaluation
+      metrics to a CSV file, creating separate result files for each
+      suppression rate when using OLA or ARX.
+"""
+
 import csv
 
 import matplotlib.pyplot as plt
@@ -21,7 +49,9 @@ def show_classifier_metrics(y_train, pred_train, y_test, pred_test, print_classi
         sns.heatmap(metrics.confusion_matrix(y_test, pred_test), annot=True, fmt='d', cmap="viridis")
         plt.title('Confusion matrix | Test data')
         plt.show()
+        print('Helloooo')
     if print_classification_report:
+        print("let's gooo")
         print('Classification report | Test data')
         print(metrics.classification_report(y_test, pred_test))
     print('Accuracy | Test data: %f%%' % (metrics.accuracy_score(y_test, pred_test) * 100))
