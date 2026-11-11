@@ -130,6 +130,4 @@ dmypy.json
 
 *.pyc
 venv*
-results/*
-!results/.gitkeep
 *.pickle

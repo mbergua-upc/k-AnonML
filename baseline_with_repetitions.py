@@ -39,21 +39,70 @@ WORKFLOW:
 
 OUTPUTS:
     - Anonymized datasets in CSV format, generated for each privacy
-      configuration.
+      configuration and stored once in
+      results/<dataset>/<method>/anon_tables/<parameters>/, so they are
+      reused by every classifier with the same method parameters.
+    - Anonymization time per k and s in anon_timing.csv, in the same folder.
     - Classification results (accuracy, precision, recall and F1-score).
     - Feature matrix dimensions for each experiment.
-    - Results organized into timestamped directories by dataset and
-      anonymization method.
+    - Results organized into directories by dataset, anonymization method
+      and classifier: results/<dataset>/<method>/<classifier>/.
+    - Zero-Rule baseline and metrics on the original data, written to
+      results/original_baseline/<dataset>_<classifier>.csv.
 
 The main objective is to compare the predictive utility of anonymized data
 under different privacy configurations and analyse the trade-off between
 privacy protection and machine learning performance.
+
+USAGE:
+    python baseline_with_repetitions.py [global options] METHOD [method options]
+
+    Global options (must be placed before METHOD):
+        --dataset {cmc,mgm,adult,cahousing}   dataset (default: adult)
+        --classifier {rf,knn,svm,xgb}         classifier (default: knn)
+        --start-k INT                         initial k, must be >= 2 (default: 2)
+        --stop-k INT                          last k (default: 100)
+        --step-k INT                          step for k (default: 1)
+        --debug, -d                           enable debugging
+        --verbose, -v                         increase verbosity (repeatable)
+
+    METHOD (one of):
+        mondrian          Mondrian. No extra options.
+        tdg               Top-Down Greedy. No extra options.
+        cb                Clustering-based. Options:
+                            --cb-alg {knn,kmember,oka}    (default: knn)
+        ola               OLA. Options:
+                            --start-s INT                 (default: 3)
+                            --stop-s INT                  (default: 3)
+                            --step-s INT                  (default: 1)
+                            --metric, -m {none,gweight,prec,aecs,dm,ent}
+                                                          (default: gweight)
+        arx_sample        ARX, genetic best-effort search.
+        arx_optimal       ARX, optimal search.
+        arx_bottom_up     ARX, best-effort bottom-up search.
+                          The three ARX methods share these options:
+                            --start-s INT                 suppression, % of records (default: 0)
+                            --stop-s INT                  (default: 0)
+                            --step-s INT                  (default: 1)
+                            --l-diversity FLOAT           enable l-diversity with this l
+                            --l-variant {distinct,entropy}
+                                                          (default: distinct)
+                            --t-closeness FLOAT           enable t-closeness with this t (0-1)
+                            --sensitive NAME              sensitive attribute for l-diversity /
+                                                          t-closeness (default: target variable)
+
+    Examples:
+        python baseline_with_repetitions.py --dataset adult --classifier knn --start-k 2 --stop-k 10 --step-k 2 mondrian
+        python baseline_with_repetitions.py --dataset cmc --classifier rf --start-k 2 --stop-k 50 ola --start-s 3 --stop-s 5 --metric gweight
+        python baseline_with_repetitions.py --dataset adult --classifier knn --start-k 2 --stop-k 10 --step-k 2 arx_optimal --start-s 0 --stop-s 0 --l-diversity 2 --l-variant distinct
 """
 
 # Imports
 import argparse
 import csv
+import glob
 import os
+import time
 from datetime import datetime, timezone
 
 import numpy as np
@@ -71,6 +120,42 @@ from top_down_greedy.anonymizer import tdg_get_result_one
 from utils.data import read_raw, write_anon
 from utils.types import AnonMethod, Classifier, Dataset, MLRes
 from arx_wrapper.anonymizer import get_result_arx
+
+
+def anon_tables_name(params):
+    # readable folder name built from the method parameters, e.g. 'cb_alg-knn'
+    items = [f'{key}-{value}' for key, value in params.items() if key not in ('dataset', 'anon_method')]
+    return '_'.join(items) or 'default'
+
+
+def find_cached_anon_files(anon_folder, dataset, k, s):
+    # anonymized tables already generated for this method, parameters, k and s
+    files = glob.glob(os.path.join(anon_folder, 's_' + str(s), f'{dataset}_anonymized_{k}_*.csv'))
+    return sorted(files, key=lambda f: int(os.path.splitext(f)[0].rsplit('_', 1)[1]))
+
+
+def save_anon_timing(anon_folder, s, k, seconds, tables_count):
+    # time taken by the anonymization algorithm, appended once per generated set of tables
+    timing_path = os.path.join(anon_folder, 'anon_timing.csv')
+    write_header = not os.path.isfile(timing_path)
+    with open(timing_path, 'a', newline='') as timing_file:
+        writer = csv.writer(timing_file)
+        if write_header:
+            writer.writerow(['s', 'k', 'anonymization_seconds', 'tables'])
+        writer.writerow([s, k, round(seconds, 3), tables_count])
+
+
+def build_anon_params(args, dataset, anon_method, target_var):
+    # only the settings that change the anonymized table (not the classifier)
+    params = {'dataset': dataset, 'anon_method': str(anon_method)}
+    if anon_method == AnonMethod.CB:
+        params['cb_alg'] = args.cb_alg
+    elif anon_method == AnonMethod.OLA:
+        params['metric'] = args.metric
+    elif str(anon_method).startswith('arx'):
+        params.update(sensitive=args.sensitive or target_var, l_diversity=args.l_diversity,
+                      l_variant=args.l_variant, t_closeness=args.t_closeness)
+    return params
 
 
 def main(args):
@@ -98,22 +183,18 @@ def main(args):
     data_path = os.path.join(path, f'{dataset}.csv')
     # Generalization hierarchies path
     gen_path = os.path.join('generalization', 'hierarchies', dataset, '')  # trailing /
-    # folder for all results
-    res_folder = os.path.join('results', dataset, anon_method, datetime.now(timezone.utc).isoformat().replace(':', '_'))
-    # ORIGINAL: datetime.utcnow()
+    # folder for the results of this dataset, method and classifier
+    res_folder = os.path.join('results', dataset, anon_method, classifier)
 
     # ML results path
     output_path = os.path.join(res_folder, f'{dataset}_{os.path.basename(anon_method)}_{os.path.basename(classifier)}_k_{args.stop_k}.csv')
-    # path for anonymized datasets
-    anon_folder = os.path.join(res_folder, 'anon_dataset', '')  # trailing /
     # path for pickled numeric values
     numeric_folder = os.path.join(res_folder, 'numeric')
     # save ML features
     features_file = os.path.join(res_folder, 'features.csv')
 
     # create path needed for results recursively
-    os.makedirs(anon_folder)
-    os.makedirs(numeric_folder)
+    os.makedirs(numeric_folder, exist_ok=True)
 
     xgb_eval_metric = 'error'
 
@@ -182,6 +263,11 @@ def main(args):
     elif dataset == Dataset.CMC:
         SA_var = ['ID', 'method']
 
+    # anonymized tables are stored once and shared by all classifiers with the same method parameters
+    anon_params = build_anon_params(args, dataset, anon_method, target_var)
+    anon_folder = os.path.join('results', dataset, anon_method, 'anon_tables', anon_tables_name(anon_params), '')
+    os.makedirs(anon_folder, exist_ok=True)
+
     # Experiments on original Data
 
     # label encoding of the target variable
@@ -202,24 +288,21 @@ def main(args):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=rnd)
 
     # creating a classifer
-    clf = util.create_classifier(classifier, args.dataset)
+    clf = util.create_classifier(classifier, args.dataset, xgb_eval_metric, 40)
     print(clf)
 
     # train the model using the training sets
     if classifier == Classifier.XGB:
-        clf.fit(X_train, y_train, eval_metric=[xgb_eval_metric], eval_set=[
-                (X_train, y_train), (X_test, y_test)], early_stopping_rounds=40)
+        clf.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)])
     else:
         clf.fit(X_train, y_train)
 
     pred_train = clf.predict(X_train)
     pred_test = clf.predict(X_test)
 
-    print('Results on original data:')
-    print('Training data:')
-    print('Accuracy: %f%%' % (util.get_classifier_metrics(y_train, pred_train)[0]))
-    print('Test data:')
-    print('Accuracy: %f%%' % (util.get_classifier_metrics(y_test, pred_test)[0]))
+    accuracy, precision, recall, f1_score = util.get_classifier_metrics(y_test, pred_test)
+    print('Accuracy: %f%%' % (accuracy))
+
 
     if args.verbose > 0:
         util.show_classifier_metrics(y_train, pred_train, y_test, pred_test)
@@ -228,48 +311,69 @@ def main(args):
     baseline = util.zero_rule_baseline(y_test)
     print('Zero-Rule baseline: %f%%' % (baseline))
 
+    # save original-data metrics and zero-rule baseline, one file per dataset and classifier
+    baseline_folder = os.path.join('results', 'original_baseline')
+    os.makedirs(baseline_folder, exist_ok=True)
+    with open(os.path.join(baseline_folder, f'{dataset}_{classifier}.csv'), 'w', newline='') as baseline_file:
+        writer = csv.writer(baseline_file)
+        writer.writerow(['predictor', 'accuracy', 'precision', 'recall', 'f1_score'])
+        zero_rule_pred = np.full(len(y_test), y_test.value_counts().idxmax())
+        zero_acc, zero_precision, zero_recall, zero_f1 = util.get_classifier_metrics(y_test, zero_rule_pred)
+        writer.writerow(['zero_rule_baseline', zero_acc, zero_precision, zero_recall, zero_f1])
+        writer.writerow(['original_data', accuracy, precision, recall, f1_score])
+
     # Data Anonymization and repeated experiments (with different k)
 
-    with open(features_file, 'a+', newline='') as f_file:
+    with open(features_file, 'w', newline='') as f_file:
         writer = csv.writer(f_file)
         nodes_count = 1
         raw_data, header = read_raw(path, numeric_folder, dataset, QI_INDEX, IS_CAT)
         ATT_TREES = read_tree(gen_path, numeric_folder, dataset, ATT_NAMES, QI_INDEX, IS_CAT)
         for s in s_range:
             s_folder = os.path.join(anon_folder, 's_' + str(s))
-            os.mkdir(s_folder)
+            os.makedirs(s_folder, exist_ok=True)
             ml_res = MLRes()
             for k in k_range:
-                anon_data = None
-                if anon_method == AnonMethod.MONDRIAN:
-                    anon_data = get_result_one(ATT_TREES, raw_data, k, path, QI_INDEX, SA_INDEX)
-                elif anon_method == AnonMethod.TDG:
-                    anon_data = tdg_get_result_one(ATT_TREES, raw_data, k, path, QI_INDEX, SA_INDEX)
-                elif anon_method == AnonMethod.CB:
-                    anon_data = cb_get_result_one(ATT_TREES, raw_data, k, path, QI_INDEX, SA_INDEX, args.cb_alg)
+                cached_files = find_cached_anon_files(anon_folder, dataset, k, s)
+                if cached_files:
+                    node_files = cached_files
+                    print('K: ' + str(k) + ' S: ' + str(s) + ' | Reusing anonymized tables from a previous run')
+                else:
+                    anon_data = None
+                    start_time = time.perf_counter()
+                    if anon_method == AnonMethod.MONDRIAN:
+                        anon_data = get_result_one(ATT_TREES, raw_data, k, path, QI_INDEX, SA_INDEX)
+                    elif anon_method == AnonMethod.TDG:
+                        anon_data = tdg_get_result_one(ATT_TREES, raw_data, k, path, QI_INDEX, SA_INDEX)
+                    elif anon_method == AnonMethod.CB:
+                        anon_data = cb_get_result_one(ATT_TREES, raw_data, k, path, QI_INDEX, SA_INDEX, args.cb_alg)
 
-                elif anon_method == AnonMethod.OLA:
-                    # Anonymize data with OLA
-                    anon_data, gen_level_array = emain(raw_data, k, gen_strat, max_gen_level,
-                                                       QI_INDEX, args.metric, res_folder, suppression_rate=s)
+                    elif anon_method == AnonMethod.OLA:
+                        # Anonymize data with OLA
+                        anon_data, gen_level_array = emain(raw_data, k, gen_strat, max_gen_level,
+                                                           QI_INDEX, args.metric, res_folder, suppression_rate=s)
 
-                elif anon_method in [AnonMethod.ARX_SAMPLE, AnonMethod.ARX_OPTIMAL, AnonMethod.ARX_BOTTOM_UP]:
-                    # 'arx_bottom_up' -> 'BOTTOM_UP'
-                    arx_method = str(anon_method).split('_', 1)[1].upper()
-                    anon_data = get_result_arx(
-                        raw_data, header, k, gen_path, dataset, QI_INDEX, arx_method, s,
-                        sensitive=args.sensitive or target_var,
-                        l_diversity=args.l_diversity, l_variant=args.l_variant,
-                        t_closeness=args.t_closeness
-                    )
+                    elif anon_method in [AnonMethod.ARX_SAMPLE, AnonMethod.ARX_OPTIMAL, AnonMethod.ARX_BOTTOM_UP]:
+                        # 'arx_bottom_up' -> 'BOTTOM_UP'
+                        arx_method = str(anon_method).split('_', 1)[1].upper()
+                        anon_data = get_result_arx(
+                            raw_data, header, k, gen_path, dataset, QI_INDEX, arx_method, s,
+                            sensitive=args.sensitive or target_var,
+                            l_diversity=args.l_diversity, l_variant=args.l_variant,
+                            t_closeness=args.t_closeness
+                        )
 
-                # Write anonymized data in csv file
-                nodes_count = write_anon(s_folder, anon_data, header, k, s, dataset)
+                    anon_seconds = time.perf_counter() - start_time
 
-                for node in range(nodes_count):
+                    # Write anonymized data in csv file
+                    nodes_count = write_anon(s_folder, anon_data, header, k, s, dataset)
+                    save_anon_timing(anon_folder, s, k, anon_seconds, nodes_count)
+                    node_files = [os.path.join(s_folder, dataset + "_anonymized_" + str(k) + '_' + str(node) + ".csv")
+                                  for node in range(nodes_count)]
+
+                for node, node_file in enumerate(node_files):
                     # reading in the anonymized data
-                    anon_data = pd.read_csv(os.path.join(
-                        s_folder, dataset + "_anonymized_" + str(k) + '_' + str(node) + ".csv"), delimiter=';')
+                    anon_data = pd.read_csv(node_file, delimiter=';')
                     print(
                         'K: ' + str(k) + ' S: ' + str(s) + ' Node: ' + str(node) + ' | Anonymized Data: ' +
                         str(anon_data.shape[0]) + ' entries, ' + str(anon_data.shape[1]) + ' attributes'
@@ -345,12 +449,6 @@ def main(args):
                     clf = util.create_classifier(classifier, args.dataset)
 
                     # train the model using the training sets
-                    if classifier == Classifier.XGB:
-                        clf.fit(
-                            X_train, y_train, eval_metric=[xgb_eval_metric], eval_set=[
-                                (X_train, y_train), (X_test, y_test)], early_stopping_rounds=40
-                        )
-
                     clf.fit(X_train, y_train)
                     pred_train = clf.predict(X_train)
                     pred_test = clf.predict(X_test)

@@ -70,7 +70,7 @@ def zero_rule_baseline(y):
     return baseline
 
 
-def create_classifier(classifier, dataset):
+def create_classifier(classifier, dataset, eval_metric=None, early_stopping_rounds=None):
     if classifier == 'rf':
         clf = RandomForestClassifier(n_estimators=300, oob_score=True,
                                      min_samples_split=5, max_depth=10, random_state=10)
@@ -92,6 +92,11 @@ def create_classifier(classifier, dataset):
         param['max_depth'] = 5
         param['n_estimators'] = 100
         param['seed'] = 10
+        # early stopping is configured on the estimator (not in fit) in recent xgboost versions
+        if eval_metric is not None:
+            param['eval_metric'] = eval_metric
+        if early_stopping_rounds is not None:
+            param['early_stopping_rounds'] = early_stopping_rounds
         clf = XGBClassifier(**param)
     else:
         print('Invalid classifier!')

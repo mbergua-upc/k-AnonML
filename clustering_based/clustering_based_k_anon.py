@@ -349,8 +349,10 @@ def clustering_knn(data, k=25):
     clusters = []
     # randomly choose seed and find k-1 nearest records to form cluster with size k
     while len(data) >= k:
+        print("len(data):", len(data))
         index = random.randrange(len(data))
         cluster, record_index = find_best_knn(index, k, data)
+        print("cluster size:", len(cluster))
         data = [t for i, t in enumerate(data[:]) if i not in set(record_index)]
         clusters.append(cluster)
     # residual assignment
@@ -358,6 +360,7 @@ def clustering_knn(data, k=25):
         t = data.pop()
         cluster_index = find_best_cluster_iloss(t, clusters)
         clusters[cluster_index].add_record(t)
+    print("function ends")
     return clusters
 
 
@@ -477,6 +480,7 @@ def clustering_based_k_anon(att_trees, data, k, QI_num, SA_num, type_alg):
     if type_alg == 'knn':
         print("Begin to KNN Cluster based on NCP")
         clusters = clustering_knn(data, k)
+        print("KNN Cluster finished, begin to residual assignment")
     elif type_alg == 'kmember':
         print("Begin to K-Member Cluster based on NCP")
         clusters = clustering_kmember(data, k)
