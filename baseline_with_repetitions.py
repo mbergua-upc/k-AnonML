@@ -63,6 +63,7 @@ USAGE:
         --start-k INT                         initial k, must be >= 2 (default: 2)
         --stop-k INT                          last k (default: 100)
         --step-k INT                          step for k (default: 1)
+        --results-dir PATH                    folder where all results are stored (default: results)
         --debug, -d                           enable debugging
         --verbose, -v                         increase verbosity (repeatable)
 
@@ -184,7 +185,7 @@ def main(args):
     # Generalization hierarchies path
     gen_path = os.path.join('generalization', 'hierarchies', dataset, '')  # trailing /
     # folder for the results of this dataset, method and classifier
-    res_folder = os.path.join('results', dataset, anon_method, classifier)
+    res_folder = os.path.join(args.results_dir, dataset, anon_method, classifier)
 
     # ML results path
     output_path = os.path.join(res_folder, f'{dataset}_{os.path.basename(anon_method)}_{os.path.basename(classifier)}_k_{args.stop_k}.csv')
@@ -265,7 +266,7 @@ def main(args):
 
     # anonymized tables are stored once and shared by all classifiers with the same method parameters
     anon_params = build_anon_params(args, dataset, anon_method, target_var)
-    anon_folder = os.path.join('results', dataset, anon_method, 'anon_tables', anon_tables_name(anon_params), '')
+    anon_folder = os.path.join(args.results_dir, dataset, anon_method, 'anon_tables', anon_tables_name(anon_params), '')
     os.makedirs(anon_folder, exist_ok=True)
 
     # Experiments on original Data
@@ -312,7 +313,7 @@ def main(args):
     print('Zero-Rule baseline: %f%%' % (baseline))
 
     # save original-data metrics and zero-rule baseline, one file per dataset and classifier
-    baseline_folder = os.path.join('results', 'original_baseline')
+    baseline_folder = os.path.join(args.results_dir, 'original_baseline')
     os.makedirs(baseline_folder, exist_ok=True)
     with open(os.path.join(baseline_folder, f'{dataset}_{classifier}.csv'), 'w', newline='') as baseline_file:
         writer = csv.writer(baseline_file)
@@ -527,6 +528,7 @@ if __name__ == "__main__":
         p.add_argument('--sensitive', default=None,
                        help='sensitive attribute for l-diversity / t-closeness (default: target variable)')
 
+    parser.add_argument('--results-dir', default='results', help='folder where all results are stored')
     parser.add_argument('--debug', '-d', action='store_true', help='enable debugging')
     parser.add_argument('--verbose', '-v', action='count', default=0, help='increase output verbosity')
 
