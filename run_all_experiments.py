@@ -15,15 +15,20 @@ import sys
 from itertools import product
 from pathlib import Path
 
-DATASETS = ['adult', 'cahousing', 'cmc', 'mgm']
+DATASETS = ['mgm']
 CLASSIFIERS = ['knn', 'rf', 'svm', 'xgb']
-METHODS = ['mondrian', 'tdg', 'cb', 'ola']
+# METHODS = ['mondrian', 'tdg', 'cb', 'ola']
+METHODS = ['arx_sample', 'arx_optimal', 'arx_bottom_up']
 
 START_K = 2
 STOP_K = 100
 STEP_K = 1
 
 CB_ALG = 'knn'
+
+ARX_START_S = 3
+ARX_STOP_S = 3
+ARX_STEP_S = 1
 
 OLA_START_S = 3
 OLA_STOP_S = 3
@@ -54,6 +59,12 @@ def build_command(dataset, classifier, method):
             '--stop-s', str(OLA_STOP_S),
             '--step-s', str(OLA_STEP_S),
             '--metric', OLA_METRIC,
+        ]
+    elif method == 'arx_sample' or method == 'arx_optimal' or method == 'arx_bottom_up':
+        cmd += [
+            '--start-s', str(ARX_START_S),
+            '--stop-s', str(ARX_STOP_S),
+            '--step-s', str(ARX_STEP_S),
         ]
     return cmd
 

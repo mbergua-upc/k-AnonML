@@ -1,13 +1,15 @@
-"""Genera tres figuras:
-  1. ola_generalisation_adult.png: efecto combinado de generalizacion y supresion de OLA en ADULT
-  2. ola_generalisation_mgm.png: lo mismo para MGM
-  3. correlation_adult.png: matriz de correlacion de Spearman de ADULT
+"""
+Generate three figures:
+1. ola_generalisation_adult.png: combined effect of generalisation and suppression of OLA on ADULT
+2. ola_generalisation_mgm.png: same for MGM
+3. correlation_adult.png: Spearman correlation matrix of ADULT
 
-Las dos primeras usan los resultados de run_ola_experiments.py (results/ola_experiments):
-barras = nivel de generalizacion de cada atributo en el nodo elegido por OLA para cada k,
-curva de supresion = numero de registros suprimidos (todos los QI a '*' en las tablas anonimizadas),
-curva de F1 = F1 score del clasificador. Si faltan resultados de un dataset se avisa y se
-pasa a la siguiente figura."""
+The first two use the results of run_ola_experiments.py (results/ola_experiments):
+    bars = generalisation level of each attribute in the node chosen by OLA for each k,
+    suppression curve = number of suppressed records (all QI to '*' in the anonymized tables),
+    F1 curve = F1 score of the classifier. If results are missing for a dataset, a warning is issued and
+    the next figure is generated.
+"""
 import argparse
 import sys
 from pathlib import Path
@@ -26,10 +28,8 @@ OUT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 from run_ola_experiments import QI_INDEX  # noqa: E402
 
-# colores de las curvas (supresion, F1) como en las figuras de referencia
 CURVE_COLORS = {"adult": ("tab:green", "tab:blue"), "mgm": ("tab:green", "tab:blue")}
 TARGET = {"adult": "salary-class", "mgm": "severity"}
-# atributos categoricos entre los QI de ADULT (como IS_CAT2 en baseline_with_repetitions.py)
 ADULT_CATEGORICAL = ["sex", "race", "marital-status", "education", "native-country", "workclass", "occupation"]
 
 
@@ -47,7 +47,7 @@ def load_generalisation(results_dir, dataset, metric, s):
 def count_suppressed(results_dir, dataset, metric, s, k, qi_names):
     path = results_dir / metric / dataset / "ola" / "anon_tables" / f"metric-{metric}" / f"s_{s}" / f"{dataset}_anonymized_{k}_0.csv"
     df = pd.read_csv(path, sep=";", usecols=qi_names, dtype=str)
-    # l1sub tambien generaliza a '*', asi que un registro suprimido es el que tiene '*' en todos los QI
+    # l1sub also counts as suppressed, so we check if all QI columns are '*'
     return int((df == "*").all(axis=1).sum())
 
 
@@ -60,7 +60,7 @@ def plot_generalisation(results_dir, dataset, classifier, metric, s, k_step, out
         if levels.empty or not f1_files:
             raise FileNotFoundError("sin resultados")
         f1 = pd.read_csv(f1_files[0])["f1"]
-        f1.index = range(2, 2 + len(f1))  # la primera fila es k=2
+        f1.index = range(2, 2 + len(f1))  # first row is k=2
         ks = [k for k in levels.index if k in f1.index][::k_step]
         suppressed = [count_suppressed(results_dir, dataset, metric, s, k, qi_names) for k in ks]
     except FileNotFoundError as error:
@@ -112,7 +112,7 @@ def plot_correlation(output):
     target = TARGET["adult"]
     qi_names = [data.columns[i] for i in QI_INDEX["adult"]]
     data[target] = data[target].astype("category").cat.codes
-    # mismo preprocesado que baseline_with_repetitions.py: one-hot de las categoricas y sin ID
+    # same preprocessing as in run_ola_experiments.py: one-hot encode categorical features
     features = pd.get_dummies(data[qi_names], columns=ADULT_CATEGORICAL, drop_first=True).astype(float)
     features[target] = data[target].astype(float)
     corr = features.corr(method="spearman")

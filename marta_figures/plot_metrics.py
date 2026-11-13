@@ -17,9 +17,12 @@ RESULTS = ROOT / "marta_results"
 OUT_DIR = Path(__file__).resolve().parent
 
 DATASETS = {"adult": "ADULT", "cahousing": "CAHOUSING", "cmc": "CMC", "mgm": "MGM"}
+DATASETS = {"mgm": "MGM"}
 CLASSIFIERS = {"rf": "RF", "xgb": "XGBoost", "knn": "k-NN", "svm": "SVM"}
-ANONYMIZERS = {"mondrian": "Mondrian", "ola": "OLA", "tdg": "TDG", "cb": "CB"}
-COLORS = {"mondrian": "tab:red", "ola": "tab:orange", "tdg": "tab:green", "cb": "tab:blue"}
+ANONYMIZERS = {"mondrian": "Mondrian", "ola": "OLA", "tdg": "TDG", "cb": "CB", "arx_sample": "ARX genetic", "arx_optimal": "ARX Flash", "arx_bottom_up": "ARX Lightning"}
+COLORS = {"mondrian": "tab:red", "ola": "tab:orange", "tdg": "tab:green", "cb": "tab:blue", "arx_sample": "tab:purple", "arx_optimal": "tab:brown", "arx_bottom_up": "tab:pink"}
+ANONYMIZERS = {"arx_sample": "ARX genetic", "arx_optimal": "ARX Flash", "arx_bottom_up": "ARX Lightning"}
+COLORS = {"arx_sample": "tab:purple", "arx_optimal": "tab:brown", "arx_bottom_up": "tab:pink"}
 
 # metrica en la tabla de resultados, columna en el baseline, titulo, limite eje y
 METRICS = {

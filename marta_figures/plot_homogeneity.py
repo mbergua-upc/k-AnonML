@@ -1,14 +1,15 @@
-"""Histogramas del numero de clases de equivalencia segun su homogeneidad (Mondrian):
-  1. homogeneity_cahousing_mondrian_rf.png: RF en CAHOUSING, k = 78 y 79
-  2. homogeneity_mgm_mondrian_knn.png: k-NN en MGM, k = 58, 59, 62 y 72
+"""
+Histograms of the number of equivalence classes according to their homogeneity (Mondrian):
+  1. homogeneity_cahousing_mondrian_rf.png: RF on CAHOUSING, k = 78 and 79
+  2. homogeneity_mgm_mondrian_knn.png: k-NN on MGM, k = 58, 59, 62 and 72
 
-Para cada k se reproduce el pipeline de baseline_with_repetitions.py sobre la tabla
-anonimizada de marta_results: se entrena el clasificador con el mismo split (30 % test,
-random_state=42) y se predicen los registros de test. La homogeneidad de una clase de
-equivalencia (registros con los mismos valores de QI anonimizados) es la fraccion de sus
-registros de test que pertenecen a la clase predicha mayoritaria (1 = todos predicen lo
-mismo). Solo cuentan las clases con registros de test. La linea horizontal (eje derecho) es
-el F1 score de marta_results para ese k."""
+For each k, the pipeline of baseline_with_repetitions.py is reproduced on the anonymized table 
+from marta_results: the classifier is trained with the same split (30% test, random_state=42) 
+and the test records are predicted. The homogeneity of an equivalence class (records with the 
+same anonymized QI values) is the fraction of its test records that belong to the majority 
+predicted class (1 = all predict the same). Only classes with test records are counted. The 
+horizontal line (right axis) is the F1 score from marta_results for that k.
+"""
 import sys
 from pathlib import Path
 
@@ -88,8 +89,8 @@ def homogeneity(dataset, classifier, k):
     pred = clf.predict(X_test)
     f1 = util.get_classifier_metrics(np.asarray(y_test), pred)[3]
 
-    test = pd.DataFrame({"group": groups[test_index], "pred": pred})
-    values = test.groupby("group")["pred"].agg(lambda p: p.value_counts().iloc[0] / len(p))
+    test = pd.DataFrame({"group": groups[test_index], "pred": pred, "actual":np.asarray(y_test)})
+    values = test.groupby("group")["actual"].agg(lambda p: p.value_counts().iloc[0] / len(p))
     return values.to_numpy(), f1, y.nunique()
 
 
@@ -101,7 +102,10 @@ def plot(dataset, classifier, classifier_label, ks, layout, output):
         f1 = table["f1"].iloc[k - 2]  # la primera fila es k=2
         print(f"{dataset} {classifier} k={k}: {len(values)} clases de equivalencia con test, "
               f"F1 tabla={f1:.4f}, F1 recalculado={f1_computed:.4f}")
-        ax.hist(values, bins=np.linspace(1 / n_classes, 1, BINS + 1), color="tab:blue", edgecolor="white")
+        bins = np.linspace(0, 1, 11)
+        ax.hist(values, bins=bins, color="tab:blue", edgecolor="white")
+        ax.set_xticks(bins[1:])
+        ax.set_xlim(0, 1)
         ax.set_xlabel("Homogeneity")
         ax.set_ylabel("Number of equivalence classes")
         ax.set_title(f"k = {k}")
