@@ -6,7 +6,8 @@ Runs baseline_with_repetitions.py for every combination of dataset, classifier
 and anonymization method defined below.
     - Datasets: adult, cahousing, cmc, mgm
     - Classifiers: knn, rf, svm, xgb
-    - Anonymization methods: mondrian, tdg, cb (Default: knn), ola (Default: suppresion 3%, gweight)
+    - Anonymization methods: mondrian, tdg, cb (Default: knn), ola (Default: suppresion 3%, gweight), mdav, datafly
+      and the arx_* methods
 """
 
 import csv
@@ -15,14 +16,14 @@ import sys
 from itertools import product
 from pathlib import Path
 
-DATASETS = ['mgm']
+DATASETS = ['adult', 'cahousing', 'cmc', 'mgm']
 CLASSIFIERS = ['knn', 'rf', 'svm', 'xgb']
-# METHODS = ['mondrian', 'tdg', 'cb', 'ola']
-METHODS = ['arx_sample', 'arx_optimal', 'arx_bottom_up']
+# METHODS = ['mondrian', 'tdg', 'cb', 'ola', 'mdav', 'datafly', 'arx_sample', 'arx_optimal', 'arx_bottom_up']
+METHODS = ['arx_sample']
 
 START_K = 2
-STOP_K = 100
-STEP_K = 1
+STOP_K = {"adult": 15000, "cahousing": 10000, "cmc": 735, "mgm": 415}
+STEP_K = {"adult": 198, "cahousing": 132, "cmc": 10, "mgm": 6}
 
 CB_ALG = 'knn'
 
@@ -47,8 +48,8 @@ def build_command(dataset, classifier, method):
         '--dataset', dataset,
         '--classifier', classifier,
         '--start-k', str(START_K),
-        '--stop-k', str(STOP_K),
-        '--step-k', str(STEP_K),
+        '--stop-k', str(STOP_K[dataset]),
+        '--step-k', str(STEP_K[dataset]),
         method,
     ]
     if method == 'cb':
@@ -87,7 +88,7 @@ def write_original_baseline_summary():
 
 def main():
     failures = []
-    for dataset, classifier, method in product(DATASETS, CLASSIFIERS, METHODS):
+    for dataset, classifier, method in product(DATASETS, CLASSIFIERS, METHODS): 
         cmd = build_command(dataset, classifier, method)
         print(f'Running: {" ".join(cmd)}', flush=True)
         result = subprocess.run(cmd, cwd=SCRIPT.parent)

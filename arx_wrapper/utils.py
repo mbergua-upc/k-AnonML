@@ -4,6 +4,8 @@ Helper functions of the ARX wrapper.
   - `find_java`: looks for a Java installation of version 21 or higher (the ARX
     jar requires it) in the ARX_JAVA and JAVA_HOME environment variables, the
     usual Windows install folders and the PATH.
+  - `find_javac`: the javac of that installation, used to compile the Java sources
+    of the MDAV and Incognito wrappers.
   - `export_to_csv`: writes the dataset (list of rows plus header) to a CSV file
     with ';' as delimiter, the format read by ArxRunner.java.
   - `read_arx_output`: reads the CSV produced by ARX and returns its rows
@@ -47,6 +49,16 @@ def find_java(min_version=21):
         if java and os.path.isfile(java) and _java_major_version(java) >= min_version:
             return java
     raise RuntimeError(f"Not found a Java installation of version {min_version} or higher (set ARX_JAVA or JAVA_HOME, or install Java 21+).")
+
+
+def find_javac(min_version=21):
+    """Returns the javac of the Java installation found by `find_java` (or the javac of the PATH)."""
+    java = find_java(min_version)
+    javac = os.path.join(os.path.dirname(java), 'javac.exe' if os.name == 'nt' else 'javac')
+    javac = javac if os.path.isfile(javac) else shutil.which('javac')
+    if javac is None:
+        raise RuntimeError(f"javac not found (a JDK {min_version} or higher is required to compile Java sources)")
+    return javac
 
 
 def export_to_csv(raw_data, header, filepath, delimiter=';'):

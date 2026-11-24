@@ -14,16 +14,19 @@ from matplotlib.lines import Line2D
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "marta_results"
+RESULTS = ROOT / "results"
 OUT_DIR = Path(__file__).resolve().parent
 
 DATASETS = {"adult": "ADULT", "cahousing": "CAHOUSING", "cmc": "CMC", "mgm": "MGM"}
-DATASETS = {"mgm": "MGM"}
 CLASSIFIERS = {"rf": "RF", "xgb": "XGBoost", "knn": "k-NN", "svm": "SVM"}
-ANONYMIZERS = {"mondrian": "Mondrian", "ola": "OLA", "tdg": "TDG", "cb": "CB", "arx_sample": "ARX genetic", "arx_optimal": "ARX Flash", "arx_bottom_up": "ARX Lightning"}
-COLORS = {"mondrian": "tab:red", "ola": "tab:orange", "tdg": "tab:green", "cb": "tab:blue", "arx_sample": "tab:purple", "arx_optimal": "tab:brown", "arx_bottom_up": "tab:pink"}
-ANONYMIZERS = {"arx_sample": "ARX genetic", "arx_optimal": "ARX Flash", "arx_bottom_up": "ARX Lightning"}
-COLORS = {"arx_sample": "tab:purple", "arx_optimal": "tab:brown", "arx_bottom_up": "tab:pink"}
+ANONYMIZERS = {"mondrian": "Mondrian", "ola": "OLA", "tdg": "TDG", "cb": "CB", "arx_sample": "ARX genetic", "arx_optimal": "ARX Flash", "arx_bottom_up": "ARX Lightning", "incognito": "Incoognito"}
+COLORS = {"mondrian": "tab:red", "ola": "tab:orange", "tdg": "tab:green", "cb": "tab:blue", "arx_sample": "tab:purple", "arx_optimal": "tab:brown", "arx_bottom_up": "tab:pink", "incognito": "tab:gray"}
+ANONYMIZERS = {"arx_sample": "ARX genetic", "mdav": "MDAV", "mondrian": "Mondrian", "ola": "OLA", "datafly": "Datafly", "incognito": "Incoognito"}
+COLORS = {"arx_sample": "tab:purple", "mdav": "tab:gray", "mondrian": "tab:red", "ola": "tab:orange", "datafly": "tab:blue", "incognito": "tab:green"}
 
+
+ANONYMIZERS = {"mondrian": "Mondrian", "arx_sample": "ARX optimal"}
+COLORS = {"mondrian": "tab:red", "arx_sample": "tab:blue"}
 # metrica en la tabla de resultados, columna en el baseline, titulo, limite eje y
 METRICS = {
     "accuracy": ("accuracy", "accuracy", "Accuracy (%)", (0, 100)),
@@ -32,6 +35,10 @@ METRICS = {
     "f1_score": ("f1", "f1_score", "F1 score", (0, 1)),
 }
 
+START_K = 2
+STOP_K = {"adult": 15000, "cahousing": 10000, "cmc": 735, "mgm": 415}
+STEP_K = {"adult": 198, "cahousing": 132, "cmc": 10, "mgm": 6}
+
 
 def load_table(dataset, anonymizer, classifier):
     folder = RESULTS / dataset / anonymizer / classifier
@@ -39,7 +46,7 @@ def load_table(dataset, anonymizer, classifier):
     if not files:
         raise FileNotFoundError(f"No hay tabla en {folder}")
     df = pd.read_csv(files[0])
-    df["k"] = range(2, 2 + len(df))  # la primera fila es k=2
+    df["k"] = range(START_K, STOP_K[dataset] + 1, STEP_K[dataset])
     return df
 
 
@@ -68,7 +75,7 @@ def main():
                 ax.axhline(zero, color="black", linestyle=":", linewidth=1.5)
                 ax.axhline(orig, color="gray", linestyle="--", linewidth=1.5)
 
-                ax.set_xlim(0, 100)
+                ax.set_xlim(0, STOP_K[d])
                 ax.set_ylim(*ylim)
                 ax.set_title(f"{d_label} - {c_label}", fontsize=12)
                 ax.grid(alpha=0.3)

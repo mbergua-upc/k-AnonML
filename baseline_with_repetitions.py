@@ -15,6 +15,8 @@ INPUTS:
         * Mondrian
         * Top-Down Greedy (TDG)
         * Clustering-Based Anonymization
+        * MDAV microaggregation (Java implementation in mdav/)
+        * Datafly (datafly/)
         * OLA
         * ARX (Sample, Optimal or Bottom-Up search)
     - Privacy parameters:
@@ -72,6 +74,11 @@ USAGE:
         tdg               Top-Down Greedy. No extra options.
         cb                Clustering-based. Options:
                             --cb-alg {knn,kmember,oka}    (default: knn)
+        mdav              MDAV microaggregation (numeric QI replaced by the cluster
+                          mean, categorical QI by the cluster mode). No extra options.
+        datafly           Datafly (full-domain generalization with the hierarchies of
+                          generalization/hierarchies, at most k records suppressed
+                          and written as '*'). No extra options.
         ola               OLA. Options:
                             --start-s INT                 (default: 3)
                             --stop-s INT                  (default: 3)
@@ -121,6 +128,9 @@ from top_down_greedy.anonymizer import tdg_get_result_one
 from utils.data import read_raw, write_anon
 from utils.types import AnonMethod, Classifier, Dataset, MLRes
 from arx_wrapper.anonymizer import get_result_arx
+from datafly.anonymizer import get_result_datafly
+from mdav_wrapper.anonymizer import compile_mdav, get_result_mdav
+from incognito.anonymizer import get_result_incognito
 
 
 def anon_tables_name(params):
@@ -330,6 +340,9 @@ def main(args):
         nodes_count = 1
         raw_data, header = read_raw(path, numeric_folder, dataset, QI_INDEX, IS_CAT)
         ATT_TREES = read_tree(gen_path, numeric_folder, dataset, ATT_NAMES, QI_INDEX, IS_CAT)
+        if anon_method == AnonMethod.MDAV:
+            # compile once, so the compilation time is not counted in the anonymization time
+            compile_mdav()
         for s in s_range:
             s_folder = os.path.join(anon_folder, 's_' + str(s))
             os.makedirs(s_folder, exist_ok=True)
@@ -348,6 +361,10 @@ def main(args):
                         anon_data = tdg_get_result_one(ATT_TREES, raw_data, k, path, QI_INDEX, SA_INDEX)
                     elif anon_method == AnonMethod.CB:
                         anon_data = cb_get_result_one(ATT_TREES, raw_data, k, path, QI_INDEX, SA_INDEX, args.cb_alg)
+                    elif anon_method == AnonMethod.MDAV:
+                        anon_data = get_result_mdav(raw_data, header, k, QI_INDEX, IS_CAT2)
+                    elif anon_method == AnonMethod.DATAFLY:
+                        anon_data = get_result_datafly(raw_data, header, k, gen_path, dataset, QI_INDEX)
 
                     elif anon_method == AnonMethod.OLA:
                         # Anonymize data with OLA
@@ -363,6 +380,9 @@ def main(args):
                             l_diversity=args.l_diversity, l_variant=args.l_variant,
                             t_closeness=args.t_closeness
                         )
+
+                    elif anon_method == AnonMethod.INCOGNITO:
+                        anon_data = get_result_incognito(raw_data, header, k, gen_path, dataset, QI_INDEX)
 
                     anon_seconds = time.perf_counter() - start_time
 
@@ -513,6 +533,10 @@ if __name__ == "__main__":
     parser_cb.add_argument("--cb-alg", choices=['knn', 'kmember', 'oka'],
                            default='knn', help='algorithm for cluster based anonymization')
 
+    parser_mdav = subparsers.add_parser(AnonMethod.MDAV.value, help='mdav microaggregation algorithm')
+
+    parser_datafly = subparsers.add_parser(AnonMethod.DATAFLY.value, help='datafly anonymization algorithm')
+
     parser_arx = [
         subparsers.add_parser(AnonMethod.ARX_SAMPLE.value, help='ARX anonymization (genetic best-effort search)'),
         subparsers.add_parser(AnonMethod.ARX_OPTIMAL.value, help='ARX anonymization (optimal search)'),
@@ -528,6 +552,7 @@ if __name__ == "__main__":
         p.add_argument('--sensitive', default=None,
                        help='sensitive attribute for l-diversity / t-closeness (default: target variable)')
 
+    parser_incognito = subparsers.add_parser(AnonMethod.INCOGNITO.value, help='incognito anonymization algorithm')
     parser.add_argument('--results-dir', default='results', help='folder where all results are stored')
     parser.add_argument('--debug', '-d', action='store_true', help='enable debugging')
     parser.add_argument('--verbose', '-v', action='count', default=0, help='increase output verbosity')

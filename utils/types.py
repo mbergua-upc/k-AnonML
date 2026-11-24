@@ -11,7 +11,7 @@ CLASSES:
       CAHousing) and provides string representations of their identifiers.
 
     - AnonMethod (Enum): Defines the supported anonymization methods
-      (OLA, Mondrian, TDG, Clustering-Based and the three ARX search strategies).
+      (OLA, Mondrian, TDG, Clustering-Based, MDAV, Datafly and the three ARX search strategies).
 
     - Classifier (Enum): Defines the supported machine learning classifiers
       (Random Forest, KNN, SVM and XGBoost).
@@ -43,6 +43,9 @@ class AnonMethod(Enum):
     MONDRIAN = 'mondrian'
     TDG = 'tdg'
     CB = 'cb'
+    MDAV = 'mdav'
+    DATAFLY = 'datafly'
+    INCOGNITO = 'incognito'
     ARX_SAMPLE = 'arx_sample'
     ARX_OPTIMAL = 'arx_optimal'
     ARX_BOTTOM_UP = 'arx_bottom_up'

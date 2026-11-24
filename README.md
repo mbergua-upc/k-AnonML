@@ -31,7 +31,7 @@ The code is written in Python 3 and conducts following steps for each experiment
 The parameters, i.e., dataset, ML algorithm, _k_-anonymisation algorithm, and _k_ are defined via arguments as follows:
 
 ```txt
-usage: baseline_with_repetitions.py [-h] [--start-k START_K] [--stop-k STOP_K] [--step-k STEP_K] [--debug] [--verbose] [{cmc,mgm,adult,cahousing}] [{rf,knn,svm,xgb}] {mondrian,ola,tdg,cb} ...
+usage: baseline_with_repetitions.py [-h] [--start-k START_K] [--stop-k STOP_K] [--step-k STEP_K] [--debug] [--verbose] [{cmc,mgm,adult,cahousing}] [{rf,knn,svm,xgb}] {mondrian,ola,tdg,cb,mdav,datafly} ...
 
 Anonymize data utilising different algorithms and analyse the effects of the anonymization on the data
 
@@ -39,11 +39,13 @@ positional arguments:
   {cmc,mgm,adult,cahousing}
                         the dataset used for anonymization
   {rf,knn,svm,xgb}      machine learning classifier
-  {mondrian,ola,tdg,cb}
+  {mondrian,ola,tdg,cb,mdav,datafly}
     mondrian            mondrian anonyization algorithm
     ola                 ola anonyization algorithm
     tdg                 tdg anonyization algorithm
     cb                  cb anonyization algorithm
+    mdav                mdav microaggregation algorithm
+    datafly             datafly anonymization algorithm
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -63,6 +65,10 @@ The original reporitories can be found on github.com:
 - [Top Down Greedy Anonymization](https://github.com/qiyuangong/Top_Down_Greedy_Anonymization)
 
 Our changes include the migration of Python 2 to Python 3, the option to leave non-QID attributes and the target variable non-anonymised, the ability to handle float numbers in datasets, removal and cleanup of files and code that were irrelevant to our project.
+
+The `mdav` method runs the Java implementation of the MDAV microaggregation algorithm located in `mdav/` (requires a JDK 21+, see `mdav_wrapper/`). The quasi-identifiers are encoded numerically (numeric attributes scaled to [0, 1], categorical attributes one-hot encoded) to compute the clusters of at least _k_ records; then numeric attributes are replaced by the cluster mean and categorical attributes by the cluster mode. The Java sources are compiled automatically into `mdav/build/`. Example: `python baseline_with_repetitions.py --dataset adult --classifier knn --start-k 2 --stop-k 10 --step-k 2 mdav`.
+
+The `datafly` method runs the [Python Datafly](https://github.com/alessiovierti/python-datafly) implementation located in `datafly/`, using the same generalization hierarchies as OLA and ARX (`generalization/hierarchies`). Datafly repeatedly generalizes, one level, the quasi-identifier with the most distinct values until at most _k_ records are in groups smaller than _k_; those records are suppressed and kept in the table with all their quasi-identifiers set to `*` (as ARX and OLA do). We fixed some bugs of the original code (the domain of a generalized attribute was not updated, so the same attribute was always chosen; modifying a dictionary while iterating over it when suppressing; debug messages always enabled) and replaced the hierarchy tree search by a look up table. Example: `python baseline_with_repetitions.py --dataset adult --classifier knn --start-k 2 --stop-k 10 --step-k 2 datafly`.
 
 ## Data
 The repository contains following locations for data:
